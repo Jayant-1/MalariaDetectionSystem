@@ -1,5 +1,7 @@
 # 🩺 Malaria Detection System
 
+**Problem Solved:** Streamlines malaria diagnosis and patient management in hospitals through AI-powered detection, eliminating manual record-keeping and enabling faster, more accurate patient care.
+
 A modern web application for hospital-based malaria detection and patient management. Built with React, Vite, Supabase, and TailwindCSS.
 
 🔗 **Live Demo:** [https://malaria-detection-system.vercel.app/](https://malaria-detection-system.vercel.app/)
