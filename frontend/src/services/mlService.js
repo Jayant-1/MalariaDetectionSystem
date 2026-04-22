@@ -4,7 +4,15 @@
  * Works without Supabase auth (optional bearer token support)
  */
 
-const ML_API_URL = import.meta.env.VITE_ML_API_URL || "http://localhost:8000";
+// Ensure ML_API_URL has proper protocol
+const ensureProtocol = (url) => {
+  if (!url) return "http://localhost:8000";
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  // If no protocol, add https (works for production)
+  return `https://${url}`;
+};
+
+const ML_API_URL = ensureProtocol(import.meta.env.VITE_ML_API_URL);
 const STATIC_BEARER_TOKEN = import.meta.env.VITE_API_BEARER_TOKEN || "";
 
 /**

@@ -245,9 +245,15 @@ async def complete_prediction_workflow(
         try:
             image = decode_image(image_data)
             
-            if prediction_type == "detailed":
-                result = detailed_prediction(model, image, include_gradcam=True)
-            else:  # basic
+            # Determine which prediction method to use based on parameters
+            if use_tta and prediction_type == "detailed":
+                # Test Time Augmentation with detailed analysis
+                result = tta_prediction(model, image, include_gradcam=use_gradcam)
+            elif prediction_type == "detailed":
+                # Detailed prediction with optional Grad-CAM
+                result = detailed_prediction(model, image, include_gradcam=use_gradcam)
+            else:
+                # Basic prediction
                 result = basic_prediction(model, image)
             
             logger.info(f"Prediction: {result['predicted_class']} (confidence: {result['confidence']:.2%})")
