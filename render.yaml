@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: malaria-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: malaria-postgres
+          property: connectionString
+      - key: AUTH_MODE
+        value: optional
+      - key: PYTHON_VERSION
+        value: 3.11.11
+      - key: CORS_ORIGINS
+        value: https://your-frontend.vercel.app
+
+databases:
+  - name: malaria-postgres
+    databaseName: malaria
+    user: malaria_user
