@@ -258,10 +258,10 @@ async def update_sample_status(sample_id: int, status: str, error_message: Optio
             """
             UPDATE blood_samples
             SET processing_status = %s,
-                error_message = CASE WHEN %s IS NULL THEN error_message ELSE %s END
+                error_message = COALESCE(%s::text, error_message)
             WHERE id = %s;
             """,
-            (status, error_message, error_message, sample_id),
+            (status, error_message, sample_id),
         )
 
 
