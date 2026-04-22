@@ -2,6 +2,8 @@
 Configuration file for MalariNet API
 """
 
+import os
+
 # Model configuration
 MODEL_PATH = "malarinet_lite_best_96.669.keras"
 MODEL_NAME = "MalariNet-Lite"
@@ -29,7 +31,7 @@ API_TITLE = "MalariNet API"
 API_DESCRIPTION = "AI-powered malaria detection from blood smear images"
 API_VERSION = "1.0.0"
 API_HOST = "0.0.0.0"
-API_PORT = 8000
+API_PORT = int(os.getenv("PORT", 8000))
 
 # Request limits
 MAX_BATCH_SIZE = 50

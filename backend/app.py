@@ -143,6 +143,11 @@ async def complete_prediction_workflow(
     patient_id: int = Query(..., description="Patient ID from database"),
     doctor_id: Optional[int] = Form(None, description="Doctor ID (optional when auth token is absent)"),
     prediction_type: str = Query("detailed", description="Prediction type: basic or detailed"),
+    use_tta: bool = Form(False, description="Use Test Time Augmentation"),
+    use_gradcam: bool = Form(True, description="Generate Grad-CAM visualization"),
+    image_path: Optional[str] = Form(None, description="Optional image path"),
+    storage_url: Optional[str] = Form(None, description="Optional storage URL"),
+    image_metadata: Optional[str] = Form(None, description="Optional image metadata JSON"),
     current_user: dict = Depends(get_current_user)
 ):
     """

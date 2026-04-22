@@ -180,8 +180,8 @@ export const mlService = {
       formData.append("use_tta", useTTA.toString());
       formData.append("use_gradcam", useGradCAM.toString());
 
-      // Build URL with patient_id as query parameter
-      const url = `${ML_API_URL}/predict/complete?patient_id=${patientId}`;
+      // Build URL with patient_id and prediction_type as query parameters
+      const url = `${ML_API_URL}/predict/complete?patient_id=${patientId}&prediction_type=${useGradCAM ? 'detailed' : 'basic'}`;
       console.log("Calling API:", url);
 
       // Re-enable JWT authentication (required by FastAPI)
