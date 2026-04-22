@@ -3,7 +3,7 @@ FastAPI Application - MalariNet API
 Complete integration with final database schema
 """
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, Query
+from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, Query, Form
 from fastapi.middleware.cors import CORSMiddleware
 from tensorflow import keras
 from typing import Optional, List
@@ -27,7 +27,8 @@ from preprocess import decode_image
 from inference import basic_prediction, detailed_prediction, tta_prediction
 from utils import generate_prediction_id, get_current_timestamp
 from auth import get_current_user
-from supabase_client import (
+from postgres_client import (
+    init_database, get_public_reports, get_default_doctor, get_doctor_by_id,
     create_blood_sample, update_sample_status, get_blood_sample,
     save_prediction, save_prediction_details, get_prediction,
     get_predictions_by_patient, get_predictions_by_doctor,
@@ -75,6 +76,8 @@ async def load_model():
     """Load ML model on startup"""
     global model
     try:
+        init_database()
+        logger.info("Database initialized successfully")
         logger.info(f"Loading model from {MODEL_PATH}...")
         model = keras.models.load_model(
             MODEL_PATH,
@@ -138,22 +141,22 @@ async def get_model_info():
 async def complete_prediction_workflow(
     file: UploadFile = File(..., description="Blood smear microscopy image"),
     patient_id: int = Query(..., description="Patient ID from database"),
+    doctor_id: Optional[int] = Form(None, description="Doctor ID (optional when auth token is absent)"),
     prediction_type: str = Query("detailed", description="Prediction type: basic or detailed"),
     current_user: dict = Depends(get_current_user)
 ):
     """
-    Complete malaria detection workflow with authentication
+    Complete malaria detection workflow with Railway Postgres
     
     Process:
-    1. Authenticate user (JWT verification)
-    2. Get doctor profile from database
+    1. Resolve doctor (JWT user, explicit doctor_id, or default doctor)
+    2. Validate patient exists
     3. Validate patient exists
-    4. Upload image to Supabase Storage
-    5. Create blood sample record
-    6. Run ML prediction
-    7. Save prediction results
-    8. Log attempt to audit trail
-    9. Return complete results
+    4. Create blood sample record in PostgreSQL
+    5. Run ML prediction
+    6. Save prediction results
+    7. Log attempt to audit trail
+    8. Return complete results
     
     Args:
         file: Blood smear image (JPG, PNG)
@@ -172,12 +175,19 @@ async def complete_prediction_workflow(
         if model is None:
             raise HTTPException(status_code=503, detail="ML model not loaded")
         
-        # 2. Get doctor from auth user
-        doctor = await get_doctor_by_auth_id(current_user["user_id"])
+        # 2. Resolve doctor from auth user, explicit doctor_id, or fallback default
+        doctor = None
+        if current_user.get("user_id"):
+            doctor = await get_doctor_by_auth_id(current_user["user_id"])
+        if not doctor and doctor_id is not None:
+            doctor = await get_doctor_by_id(doctor_id)
+        if not doctor:
+            doctor = await get_default_doctor()
+
         if not doctor:
             raise HTTPException(
                 status_code=404,
-                detail=f"Doctor profile not found for user {current_user['email']}"
+                detail="Doctor profile not found. Provide doctor_id or create a doctor record."
             )
         
         # Update last login
@@ -202,7 +212,7 @@ async def complete_prediction_workflow(
         if len(image_data) > 10 * 1024 * 1024:  # 10MB limit
             raise HTTPException(status_code=400, detail="File size must be less than 10MB")
         
-        # 5. Create blood sample record (uploads to storage automatically)
+        # 5. Create blood sample record in PostgreSQL
         try:
             blood_sample = await create_blood_sample(
                 patient_id=patient_id,
@@ -463,11 +473,19 @@ async def get_predictions_for_patient(
 async def get_my_predictions(
     limit: int = Query(50, description="Maximum number of results"),
     offset: int = Query(0, description="Pagination offset"),
+    doctor_id: Optional[int] = Query(None, description="Doctor ID fallback"),
     current_user: dict = Depends(get_current_user)
 ):
     """Get current doctor's prediction history"""
     try:
-        doctor = await get_doctor_by_auth_id(current_user["user_id"])
+        doctor = None
+        if current_user.get("user_id"):
+            doctor = await get_doctor_by_auth_id(current_user["user_id"])
+        if not doctor and doctor_id is not None:
+            doctor = await get_doctor_by_id(doctor_id)
+        if not doctor:
+            doctor = await get_default_doctor()
+
         if not doctor:
             raise HTTPException(status_code=404, detail="Doctor not found")
         
@@ -482,11 +500,19 @@ async def get_my_predictions(
 
 @app.get("/doctor/stats", response_model=DoctorStatsResponse, tags=["Doctor"])
 async def get_my_statistics(
+    doctor_id: Optional[int] = Query(None, description="Doctor ID fallback"),
     current_user: dict = Depends(get_current_user)
 ):
     """Get current doctor's statistics"""
     try:
-        doctor = await get_doctor_by_auth_id(current_user["user_id"])
+        doctor = None
+        if current_user.get("user_id"):
+            doctor = await get_doctor_by_auth_id(current_user["user_id"])
+        if not doctor and doctor_id is not None:
+            doctor = await get_doctor_by_id(doctor_id)
+        if not doctor:
+            doctor = await get_default_doctor()
+
         if not doctor:
             raise HTTPException(status_code=404, detail="Doctor not found")
         
@@ -505,11 +531,19 @@ async def get_my_statistics(
 
 @app.get("/doctor/profile", response_model=DoctorResponse, tags=["Doctor"])
 async def get_my_profile(
+    doctor_id: Optional[int] = Query(None, description="Doctor ID fallback"),
     current_user: dict = Depends(get_current_user)
 ):
     """Get current doctor's profile"""
     try:
-        doctor = await get_doctor_by_auth_id(current_user["user_id"])
+        doctor = None
+        if current_user.get("user_id"):
+            doctor = await get_doctor_by_auth_id(current_user["user_id"])
+        if not doctor and doctor_id is not None:
+            doctor = await get_doctor_by_id(doctor_id)
+        if not doctor:
+            doctor = await get_default_doctor()
+
         if not doctor:
             raise HTTPException(status_code=404, detail="Doctor not found")
         
@@ -582,38 +616,13 @@ async def get_patient_reports_public(
     No authentication required - uses patient_id + DOB for verification
     """
     try:
-        from supabase_client import supabase
-        
-        # Verify patient with ID and DOB
-        patient_result = supabase.table("patients").select("*").eq(
-            "patient_id", patient_id
-        ).eq("date_registered", dob).execute()
-        
-        if not patient_result.data or len(patient_result.data) == 0:
+        result = await get_public_reports(patient_id, dob)
+        if not result.get("success"):
             raise HTTPException(
-                status_code=404, 
+                status_code=404,
                 detail="Invalid patient ID or date of birth"
             )
-        
-        patient = patient_result.data[0]
-        
-        # Get all blood samples and predictions for this patient
-        samples_result = supabase.table("blood_samples").select(
-            "*, predictions(*)"
-        ).eq("patient_id", patient["id"]).order(
-            "sample_date", desc=True
-        ).execute()
-        
-        return {
-            "success": True,
-            "patient": {
-                "name": patient["name"],
-                "age": patient["age"],
-                "patient_id": patient["patient_id"],
-                "gender": patient.get("gender")
-            },
-            "reports": samples_result.data or []
-        }
+        return result
         
     except HTTPException:
         raise

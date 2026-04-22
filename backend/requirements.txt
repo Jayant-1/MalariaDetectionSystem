@@ -10,7 +10,7 @@ opencv-python-headless==4.9.0.80
 pillow==10.4.0
 
 # Database & Storage
-supabase==2.24.0
+psycopg[binary]==3.2.1
 httpx==0.28.1
 
 # Security

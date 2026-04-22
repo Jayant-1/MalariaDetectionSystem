@@ -18,12 +18,13 @@ export const predictionService = {
    *
    * Frontend just uploads image and calls the endpoint
    */
-  async createPrediction({ imageFile, patientId }) {
+  async createPrediction({ imageFile, patientId, doctorId = null }) {
     try {
       // FastAPI handles upload + prediction + DB save in one request
       const mlResponse = await mlService.predictComplete({
         imageFile,
         patientId,
+        doctorId,
       });
 
       if (mlResponse.error) {

@@ -1,34 +1,22 @@
-import { supabase } from "../lib/supabase";
-
 /**
  * Machine Learning API Service
  * Handles all interactions with the FastAPI ML model endpoints
- * Now includes JWT authentication
+ * Works without Supabase auth (optional bearer token support)
  */
 
 const ML_API_URL = import.meta.env.VITE_ML_API_URL || "http://localhost:8000";
+const STATIC_BEARER_TOKEN = import.meta.env.VITE_API_BEARER_TOKEN || "";
 
 /**
- * Get JWT token from Supabase session
+ * Get optional bearer token from env/localStorage.
  */
-const getAuthToken = async () => {
-  console.log("🔐 Getting JWT token...");
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  console.log("Session exists:", !!session);
-  console.log("Access token exists:", !!session?.access_token);
-  if (session?.access_token) {
-    console.log(
-      "Token preview:",
-      session.access_token.substring(0, 20) + "..."
-    );
-  } else {
-    console.warn("⚠️ No access token found in session!");
+const getAuthToken = () => {
+  if (STATIC_BEARER_TOKEN) return STATIC_BEARER_TOKEN;
+  try {
+    return localStorage.getItem("api_bearer_token") || "";
+  } catch {
+    return "";
   }
-
-  return session?.access_token;
 };
 
 /**
@@ -50,16 +38,10 @@ const getFetchOptions = async (
 
   // Add JWT token if available and not skipped
   if (!skipAuth) {
-    console.log("🔑 skipAuth:", skipAuth, "- fetching token...");
-    const token = await getAuthToken();
+    const token = getAuthToken();
     if (token) {
-      console.log("✅ Authorization header added");
       options.headers["Authorization"] = `Bearer ${token}`;
-    } else {
-      console.warn("❌ No token available - request will be unauthorized");
     }
-  } else {
-    console.log("⏭️ Skipping auth for this request");
   }
 
   // Add Content-Type for JSON, but not for FormData
