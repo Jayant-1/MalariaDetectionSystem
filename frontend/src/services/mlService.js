@@ -26,7 +26,7 @@ const getFetchOptions = async (
   method,
   body = null,
   isFormData = false,
-  skipAuth = false
+  skipAuth = false,
 ) => {
   const options = {
     method,
@@ -71,7 +71,7 @@ export const mlService = {
           .text()
           .catch(() => response.statusText);
         throw new Error(
-          `Health check failed (${response.status}): ${errorText}`
+          `Health check failed (${response.status}): ${errorText}`,
         );
       }
 
@@ -97,7 +97,7 @@ export const mlService = {
           .text()
           .catch(() => response.statusText);
         throw new Error(
-          `Model info fetch failed (${response.status}): ${errorText}`
+          `Model info fetch failed (${response.status}): ${errorText}`,
         );
       }
 
@@ -163,7 +163,7 @@ export const mlService = {
         "Image file:",
         imageFile?.name,
         imageFile?.type,
-        imageFile?.size
+        imageFile?.size,
       );
 
       const formData = new FormData();
@@ -181,7 +181,7 @@ export const mlService = {
       formData.append("use_gradcam", useGradCAM.toString());
 
       // Build URL with patient_id and prediction_type as query parameters
-      const url = `${ML_API_URL}/predict/complete?patient_id=${patientId}&prediction_type=${useGradCAM ? 'detailed' : 'basic'}`;
+      const url = `${ML_API_URL}/predict/complete?patient_id=${patientId}&prediction_type=${useGradCAM ? "detailed" : "basic"}`;
       console.log("Calling API:", url);
 
       // Re-enable JWT authentication (required by FastAPI)
@@ -205,7 +205,7 @@ export const mlService = {
         }
 
         throw new Error(
-          `Complete prediction failed (${response.status}): ${errorText}`
+          `Complete prediction failed (${response.status}): ${errorText}`,
         );
       }
 
@@ -248,7 +248,7 @@ export const mlService = {
           .text()
           .catch(() => response.statusText);
         throw new Error(
-          `TTA prediction failed (${response.status}): ${errorText}`
+          `TTA prediction failed (${response.status}): ${errorText}`,
         );
       }
 
@@ -291,7 +291,7 @@ export const mlService = {
           .text()
           .catch(() => response.statusText);
         throw new Error(
-          `Batch prediction failed (${response.status}): ${errorText}`
+          `Batch prediction failed (${response.status}): ${errorText}`,
         );
       }
 
@@ -312,7 +312,7 @@ export const mlService = {
       const options = await getFetchOptions("GET");
       const response = await fetch(
         `${ML_API_URL}/predictions/${predictionId}`,
-        options
+        options,
       );
 
       if (!response.ok) {
@@ -336,12 +336,12 @@ export const mlService = {
       const options = await getFetchOptions("GET");
       const response = await fetch(
         `${ML_API_URL}/patients/${patientId}/history`,
-        options
+        options,
       );
 
       if (!response.ok) {
         throw new Error(
-          `Failed to fetch patient history: ${response.statusText}`
+          `Failed to fetch patient history: ${response.statusText}`,
         );
       }
 
@@ -362,12 +362,12 @@ export const mlService = {
       const options = await getFetchOptions("GET");
       const response = await fetch(
         `${ML_API_URL}/predictions/patient/${patientId}`,
-        options
+        options,
       );
 
       if (!response.ok) {
         throw new Error(
-          `Failed to fetch patient predictions: ${response.statusText}`
+          `Failed to fetch patient predictions: ${response.statusText}`,
         );
       }
 
@@ -390,7 +390,7 @@ export const mlService = {
 
       if (!response.ok) {
         throw new Error(
-          `Failed to fetch my predictions: ${response.statusText}`
+          `Failed to fetch my predictions: ${response.statusText}`,
         );
       }
 
@@ -434,7 +434,7 @@ export const mlService = {
 
       if (!response.ok) {
         throw new Error(
-          `Failed to fetch doctor profile: ${response.statusText}`
+          `Failed to fetch doctor profile: ${response.statusText}`,
         );
       }
 
@@ -455,12 +455,12 @@ export const mlService = {
       const options = await getFetchOptions("GET");
       const response = await fetch(
         `${ML_API_URL}/organization/${orgId}/stats`,
-        options
+        options,
       );
 
       if (!response.ok) {
         throw new Error(
-          `Failed to fetch organization stats: ${response.statusText}`
+          `Failed to fetch organization stats: ${response.statusText}`,
         );
       }
 
@@ -483,7 +483,7 @@ export const mlService = {
 
       if (!response.ok) {
         throw new Error(
-          `Failed to fetch public reports: ${response.statusText}`
+          `Failed to fetch public reports: ${response.statusText}`,
         );
       }
 
