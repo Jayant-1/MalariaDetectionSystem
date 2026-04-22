@@ -250,15 +250,24 @@ async def complete_prediction_workflow(
             # Determine which prediction method to use based on parameters
             if use_tta and prediction_type == "detailed":
                 # Test Time Augmentation with detailed analysis
-                result = tta_prediction(model, image, include_gradcam=use_gradcam)
+                logger.info("⏳ Running TTA prediction (this may take 30-60 seconds)...")
+                result = tta_prediction(model, image)
             elif prediction_type == "detailed":
                 # Detailed prediction with optional Grad-CAM
-                result = detailed_prediction(model, image, include_gradcam=use_gradcam)
+                # Note: Grad-CAM generation is resource-intensive, may be skipped on low-memory systems
+                logger.info("⏳ Running detailed prediction with uncertainty estimation...")
+                try:
+                    result = detailed_prediction(model, image, include_gradcam=use_gradcam)
+                except Exception as detail_error:
+                    logger.warning(f"⚠️ Detailed prediction failed, falling back to basic: {detail_error}")
+                    result = basic_prediction(model, image)
+                    result['note'] = 'Detailed analysis skipped due to resource constraints'
             else:
                 # Basic prediction
+                logger.info("⏳ Running basic prediction...")
                 result = basic_prediction(model, image)
             
-            logger.info(f"Prediction: {result['predicted_class']} (confidence: {result['confidence']:.2%})")
+            logger.info(f"✅ Prediction: {result['predicted_class']} (confidence: {result['confidence']:.2%})")
             
             # Log Grad-CAM status
             if "gradcam_image" in result:
@@ -335,6 +344,12 @@ async def complete_prediction_workflow(
         
         logger.info(f"✅ Prediction completed in {processing_time}ms")
         
+        # Optimize response size - don't include huge base64 Grad-CAM on free tier
+        gradcam_image = result.get("gradcam_image")
+        gradcam_size = len(gradcam_image) if gradcam_image else 0
+        if gradcam_size > 200000:  # 200KB limit for safety on Railway free tier
+            logger.warning(f"⚠️ Grad-CAM image too large ({gradcam_size} bytes), excluding from response")
+            gradcam_image = None
         
         # 10. Return complete response
         return {
@@ -361,7 +376,9 @@ async def complete_prediction_workflow(
                 "uncertainty": result.get("uncertainty"),
                 "confidence_level": result.get("confidence_level"),
                 "recommendation": result.get("recommendation"),
-                "gradcam_image": result.get("gradcam_image")  # Already base64 from inference.py
+                "gradcam_image": gradcam_image,
+                "has_gradcam": gradcam_image is not None,
+                "gradcam_size_kb": gradcam_size / 1024 if gradcam_image else 0
             },
             "metadata": {
                 "doctor_id": doctor["id"],
@@ -378,6 +395,7 @@ async def complete_prediction_workflow(
     except Exception as e:
         # Log failed attempt
         processing_time = int((time.time() - start_time) * 1000)
+        logger.error(f"❌ Prediction failed after {processing_time}ms: {str(e)}", exc_info=True)
         
         if doctor:
             try:

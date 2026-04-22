@@ -1,4 +1,3 @@
-
 /**
  * Machine Learning API Service
  * Handles all interactions with the FastAPI ML model endpoints
@@ -161,20 +160,13 @@ export const mlService = {
     storageUrl = null,
     imageMetadata = null,
     useTTA = false,
-    useGradCAM = true,
+    useGradCAM = false,
   }) {
-    try {
-      console.log("=== Starting complete prediction workflow ===");
-      console.log("ML API URL:", ML_API_URL);
-      console.log("Patient ID:", patientId);
-      console.log("Doctor ID:", doctorId);
-      console.log(
-        "Image file:",
-        imageFile?.name,
-        imageFile?.type,
-        imageFile?.size,
-      );
-
+    const executeCompletePrediction = async ({
+      ttaEnabled,
+      gradcamEnabled,
+      allowRetryFallback,
+    }) => {
       const formData = new FormData();
       formData.append("file", imageFile);
 
@@ -186,28 +178,38 @@ export const mlService = {
       if (doctorId) formData.append("doctor_id", doctorId);
 
       // Add prediction options
-      formData.append("use_tta", useTTA.toString());
-      formData.append("use_gradcam", useGradCAM.toString());
+      formData.append("use_tta", ttaEnabled.toString());
+      formData.append("use_gradcam", gradcamEnabled.toString());
 
       // Build URL with patient_id and prediction_type as query parameters
-      const url = `${ML_API_URL}/predict/complete?patient_id=${patientId}&prediction_type=${useGradCAM ? "detailed" : "basic"}`;
+      const predictionType = gradcamEnabled ? "detailed" : "basic";
+      const url = `${ML_API_URL}/predict/complete?patient_id=${patientId}&prediction_type=${predictionType}`;
       console.log("Calling API:", url);
 
-      // Re-enable JWT authentication (required by FastAPI)
       const options = await getFetchOptions("POST", formData, true, false);
       console.log("Request headers:", JSON.stringify(options.headers, null, 2));
 
       console.log("Making fetch request...");
       const response = await fetch(url, options);
-
       console.log("Response received:", response.status, response.statusText);
 
       if (!response.ok) {
         const errorText = await response
           .text()
           .catch(() => response.statusText);
-
         console.error("Error response body:", errorText);
+
+        // For heavy inference failures, retry once with a lightweight request.
+        if (allowRetryFallback && response.status >= 500 && gradcamEnabled) {
+          console.warn(
+            "Retrying complete prediction in basic mode after server error...",
+          );
+          return executeCompletePrediction({
+            ttaEnabled: false,
+            gradcamEnabled: false,
+            allowRetryFallback: false,
+          });
+        }
 
         if (response.status === 401) {
           throw new Error("Authentication required. Please login again.");
@@ -219,9 +221,45 @@ export const mlService = {
       }
 
       const data = await response.json();
+      return { data, error: null };
+    };
+
+    try {
+      console.log("=== Starting complete prediction workflow ===");
+      console.log("ML API URL:", ML_API_URL);
+      console.log("Patient ID:", patientId);
+      console.log("Doctor ID:", doctorId);
+      console.log(
+        "Image file:",
+        imageFile?.name,
+        imageFile?.type,
+        imageFile?.size,
+      );
+      const { data, error } = await executeCompletePrediction({
+        ttaEnabled: useTTA,
+        gradcamEnabled: useGradCAM,
+        allowRetryFallback: true,
+      });
+      if (error) {
+        throw error;
+      }
       console.log("Prediction successful:", data);
       return { data, error: null };
     } catch (error) {
+      if (error?.name === "TypeError" && useGradCAM) {
+        console.warn(
+          "Network error detected during detailed prediction. Retrying in basic mode...",
+        );
+        try {
+          return await executeCompletePrediction({
+            ttaEnabled: false,
+            gradcamEnabled: false,
+            allowRetryFallback: false,
+          });
+        } catch (retryError) {
+          console.error("Basic mode retry also failed:", retryError);
+        }
+      }
       console.error("=== ML API complete prediction error ===");
       console.error("Error name:", error.name);
       console.error("Error message:", error.message);
