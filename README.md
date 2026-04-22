@@ -1,8 +1,26 @@
 # 🩺 Malaria Detection System
 
+![Malaria Detection System Banner](./public/banner.png)
+
+<div align="center">
+
+[![Live Demo](https://img.shields.io/badge/Live-Demo-brightgreen)](https://malaria-detection-system.vercel.app/)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![React](https://img.shields.io/badge/React-19.2.0-61DAFB?logo=react)](https://reactjs.org/)
+[![Vite](https://img.shields.io/badge/Vite-7.2.2-646CFF?logo=vite)](https://vitejs.dev/)
+
+</div>
+
 A modern web application for hospital-based malaria detection and patient management. Built with React, Vite, Supabase, and TailwindCSS.
 
 🔗 **Live Demo:** [https://malaria-detection-system.vercel.app/](https://malaria-detection-system.vercel.app/)
+
+## 📸 Screenshots
+
+<div align="center">
+  <img src="./public/screenshots/dashboard.png" alt="Dashboard Overview" width="45%">
+  <img src="./public/screenshots/features.png" alt="Key Features" width="45%">
+</div>
 
 ## ✨ Features
 

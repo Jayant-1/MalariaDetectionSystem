@@ -1,0 +1,19 @@
+# Core Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.12
+
+# ML Inference
+tensorflow==2.18.0
+numpy==1.26.4
+opencv-python-headless==4.9.0.80
+pillow==10.4.0
+
+# Database & Storage
+supabase==2.24.0
+httpx==0.28.1
+
+# Security
+pydantic==2.12.4
+python-jose[cryptography]==3.3.0
+python-dotenv==1.0.0
