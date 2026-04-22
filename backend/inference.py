@@ -6,7 +6,13 @@ import numpy as np
 from typing import Tuple, Dict, Any
 from tensorflow import keras
 
-from config import CLASS_NAMES, MC_DROPOUT_RUNS, GRADCAM_LAYER_NAME
+from config import (
+    CLASS_NAMES,
+    MC_DROPOUT_RUNS,
+    GRADCAM_LAYER_NAME,
+    LOW_MEMORY_MODE,
+    DEFAULT_TTA_AUGMENTATIONS,
+)
 from preprocess import preprocess_image
 from explainability import (
     compute_gradcam, overlay_heatmap, compute_uncertainty, get_confidence_level
@@ -67,16 +73,18 @@ def detailed_prediction(
     predicted_class = int(np.argmax(prediction))
     confidence = float(prediction[predicted_class])
     
-    # Uncertainty estimation
-    mean_pred, std_pred = compute_uncertainty(model, processed_image, MC_DROPOUT_RUNS)
-    uncertainty = float(std_pred[predicted_class])
+    # In low-memory mode, avoid the most expensive uncertainty pass.
+    uncertainty = 0.0
+    if not LOW_MEMORY_MODE and MC_DROPOUT_RUNS > 0:
+        mean_pred, std_pred = compute_uncertainty(model, processed_image, MC_DROPOUT_RUNS)
+        uncertainty = float(std_pred[predicted_class])
     
     # Confidence level
     confidence_level, recommendation = get_confidence_level(uncertainty)
     
     # Grad-CAM
     gradcam_base64 = None
-    if include_gradcam:
+    if include_gradcam and not LOW_MEMORY_MODE:
         heatmap = compute_gradcam(model, processed_image, GRADCAM_LAYER_NAME)
         rgb_image = processed_image[:, :, :3]
         overlay = overlay_heatmap(rgb_image, heatmap)
@@ -96,7 +104,7 @@ def detailed_prediction(
 def tta_prediction(
     model: keras.Model,
     image: np.ndarray,
-    num_augmentations: int = 10
+    num_augmentations: int = DEFAULT_TTA_AUGMENTATIONS
 ) -> Dict[str, Any]:
     """
     Perform prediction with Test-Time Augmentation
@@ -110,6 +118,8 @@ def tta_prediction(
         Dictionary with averaged prediction results
     """
     processed_image = preprocess_image(image)
+    if LOW_MEMORY_MODE:
+        num_augmentations = min(num_augmentations, 3)
     predictions_tta = []
     
     # Original

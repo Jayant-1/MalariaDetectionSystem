@@ -14,7 +14,7 @@ from config import (
     MODEL_PATH, MODEL_NAME, MODEL_VERSION, MODEL_PARAMETERS, MODEL_ACCURACY,
     CLASS_NAMES, IMAGE_SIZE, INPUT_CHANNELS, API_TITLE, API_DESCRIPTION,
     API_VERSION, CORS_ORIGINS, CORS_ALLOW_CREDENTIALS, CORS_ALLOW_METHODS,
-    CORS_ALLOW_HEADERS, API_HOST, API_PORT
+    CORS_ALLOW_HEADERS, API_HOST, API_PORT, LOW_MEMORY_MODE
 )
 from models import (
     CompletePredictionResponse, PredictionWithDetailsResponse,
@@ -245,6 +245,14 @@ async def complete_prediction_workflow(
         logger.info(f"Running {prediction_type} prediction...")
         # 6. Run ML prediction
         try:
+            if LOW_MEMORY_MODE and (prediction_type != "basic" or use_tta or use_gradcam):
+                logger.warning(
+                    "Low-memory mode enabled: forcing basic prediction and disabling TTA/Grad-CAM"
+                )
+                prediction_type = "basic"
+                use_tta = False
+                use_gradcam = False
+
             image = decode_image(image_data)
             
             # Determine which prediction method to use based on parameters

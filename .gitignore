@@ -6,6 +6,8 @@ Thumbs.db
 
 # Codex/runtime artifacts
 .codex
+*.md
+!README.md
 
 # Python
 __pycache__/

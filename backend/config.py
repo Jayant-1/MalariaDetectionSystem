@@ -36,15 +36,20 @@ API_PORT = int(os.getenv("PORT", 8000))
 # Request limits
 MAX_BATCH_SIZE = 50
 MAX_TTA_AUGMENTATIONS = 20
-DEFAULT_TTA_AUGMENTATIONS = 10
+
+# Low-memory mode for constrained hosts (Railway free/shared instances)
+LOW_MEMORY_MODE = os.getenv("LOW_MEMORY_MODE", "true").strip().lower() == "true"
+DEFAULT_TTA_AUGMENTATIONS = int(
+	os.getenv("DEFAULT_TTA_AUGMENTATIONS", "3" if LOW_MEMORY_MODE else "10")
+)
 
 # Uncertainty thresholds
 HIGH_CONFIDENCE_THRESHOLD = 0.05
 MODERATE_CONFIDENCE_THRESHOLD = 0.15
 
 # Monte Carlo Dropout
-MC_DROPOUT_RUNS = 30
-MC_DROPOUT_RUNS_FULL = 50
+MC_DROPOUT_RUNS = int(os.getenv("MC_DROPOUT_RUNS", "4" if LOW_MEMORY_MODE else "30"))
+MC_DROPOUT_RUNS_FULL = int(os.getenv("MC_DROPOUT_RUNS_FULL", "8" if LOW_MEMORY_MODE else "50"))
 
 # Grad-CAM configuration
 GRADCAM_LAYER_NAME = 'b4_attention'
