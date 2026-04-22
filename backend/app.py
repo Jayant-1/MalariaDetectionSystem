@@ -73,20 +73,22 @@ model = None
 
 @app.on_event("startup")
 async def load_model():
-    """Load ML model on startup"""
+    """Load ML model on startup with database retry logic"""
     global model
     try:
+        logger.info("🔄 Initializing database (may take 30-60 seconds on first Railway startup)...")
         init_database()
-        logger.info("Database initialized successfully")
-        logger.info(f"Loading model from {MODEL_PATH}...")
+        logger.info("✅ Database initialized successfully")
+        
+        logger.info(f"🔄 Loading model from {MODEL_PATH}...")
         model = keras.models.load_model(
             MODEL_PATH,
             custom_objects=get_custom_objects(),
             compile=False
         )
-        logger.info("Model loaded successfully")
+        logger.info("✅ Model loaded successfully")
     except Exception as e:
-        logger.error(f"Failed to load model: {e}")
+        logger.error(f"❌ Failed to load model: {e}", exc_info=True)
         raise
 
 @app.on_event("shutdown")

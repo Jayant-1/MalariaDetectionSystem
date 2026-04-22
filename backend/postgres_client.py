@@ -2,6 +2,7 @@
 
 import json
 import os
+import time
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
@@ -15,6 +16,46 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 
+def _get_conn_with_retry(max_retries=10, initial_delay=1):
+    """
+    Connect to database with exponential backoff retry logic.
+    Useful for Railway where Postgres may be starting up.
+    
+    Args:
+        max_retries: Maximum number of connection attempts
+        initial_delay: Initial delay between retries in seconds
+    
+    Returns:
+        Database connection
+    
+    Raises:
+        RuntimeError: If DATABASE_URL is not set
+        psycopg.OperationalError: If connection fails after all retries
+    """
+    if not DATABASE_URL:
+        raise RuntimeError(
+            "DATABASE_URL is not set. Configure Railway Postgres DATABASE_URL."
+        )
+    
+    delay = initial_delay
+    last_error = None
+    
+    for attempt in range(max_retries):
+        try:
+            return psycopg.connect(DATABASE_URL, autocommit=True, row_factory=dict_row)
+        except psycopg.OperationalError as e:
+            last_error = e
+            if attempt < max_retries - 1:
+                print(f"DB Connection attempt {attempt + 1}/{max_retries} failed. Retrying in {delay}s...")
+                print(f"Error: {str(e)[:100]}")
+                time.sleep(delay)
+                delay = min(delay * 2, 30)  # Exponential backoff, max 30 seconds
+            else:
+                print(f"DB Connection failed after {max_retries} attempts")
+    
+    raise last_error
+
+
 def _get_conn():
     if not DATABASE_URL:
         raise RuntimeError(
@@ -24,8 +65,9 @@ def _get_conn():
 
 
 def init_database():
-    """Create required tables (if missing) and seed minimal records."""
-    with _get_conn() as conn, conn.cursor() as cur:
+    """Create required tables (if missing) and seed minimal records.
+    Uses connection retry logic for Railway Postgres startup delays."""
+    with _get_conn_with_retry() as conn, conn.cursor() as cur:
         # Core entities
         cur.execute(
             """
